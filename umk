@@ -1,0 +1,51 @@
+#!/usr/bin/env make -f -
+#
+# This makefile provides default compilation commands for known file types
+# Usage: make -f /path/to/this/makefile out_format(/path/to/the/file)
+#        make -f /path/to/this/makefile target_name ... (default makefile used)
+# Examples:
+#     make -f ~/Makefile pdf[report.md] --> Uses pandoc to render Markdown to PDF
+#     make -f ~/Makefile pdf[report.md] out[foo.pdf] --> Same, but with different output filename
+#     make -f ~/Makefile pdf[report.md] open --> Same, but open the PDF at the end
+#     make -f ~/Makefile zip[output/] --> Compresses the folder into a zip file
+#     make -f ~/Makefile c[src/] out[myapp] --> Compiles all C files in the folder into myapp
+#
+# By Quim Llimona, 2015
+
+# Figure out the number of jobs, just to know it
+MAKE_PID := $(shell echo $$PPID)
+JOB_FLAG := $(filter -j%, $(subst -j ,-j,$(shell ps T | grep "^\s*$(MAKE_PID).*$(MAKE)")))
+JOBS     := $(subst -j,,$(JOB_FLAG))
+
+# This is the main thing we want to compile
+PRIMARY_TARGET := $(firstword $(MAKECMDGOALS))
+
+# If the target is not valid, assume we meant to not use this makefile
+.DEFAULT:
+	make -j$(JOBS) $(MAKECMDGOALS)
+
+# Allows moving the compiled target post-compilation
+out[%]: $(PRIMARY_TARGET)
+	mv -R $(PRIMARY_OUTPUT) $*
+	$(eval PRIMARY_OUTPUT := $*)
+
+# OSX-specific: opens the compiled file with open()
+open: $(PRIMARY_TARGET)
+	open $(PRIMARY_OUTPUT)
+
+#
+# Now come the individual rules
+# Eventually we'll put these in separate files
+#
+
+# Convert Markdown documents to PDF renderings (with LaTeX support)
+pdf[%.md]: %.md
+	$(eval PRIMARY_OUTPUT := $*.pdf)
+	pandoc -o $(PRIMARY_OUTPUT) $*.md
+
+# Compress files or folders
+zip[%]: %
+	$(eval PRIMARY_OUTPUT := $*.zip)
+	zip $*
+
+
